@@ -6,9 +6,13 @@ import paramiko
 
 import signal
 import sys
+
+loaders = []
+
 def signal_handler(signal, frame):
-        print 'You pressed Ctrl+C!'
-        sys.exit(0)
+  for loader in loaders:
+    loader.close()
+  sys.exit(0)
 
 
 class loader:
@@ -38,6 +42,7 @@ class loader:
     self.running = True
     self.thread = threading.Thread(target = self.__monitor_connection)
     self.thread.start()
+    loaders.append(self)
 
   def close(self):
     print 'Closing loader connection'

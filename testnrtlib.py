@@ -14,7 +14,6 @@ def signal_handler(signal, frame):
     loader.close()
   sys.exit(0)
 
-
 class loader:
   def __monitor_connection(self):
     print 'Monitoring Connection'

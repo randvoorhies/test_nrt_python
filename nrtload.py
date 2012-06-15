@@ -3,6 +3,13 @@
 import nrtlib
 from optparse import OptionParser
 import logging
+import time
+import signal
+
+######################################################################
+def signal_handler(signal, frame):
+  logging.info('Shutting down')
+  nrtlib.cleanUpAndExit(0)
 
 ######################################################################
 def showParameters():
@@ -14,6 +21,8 @@ def showParameters():
 
 ######################################################################
 if __name__ == '__main__':
+  signal.signal(signal.SIGINT, signal_handler)
+
   usage = "usage: %prog [options] loadfile.py [-- loadfileoptions]"
   parser = OptionParser(usage=usage)
 
@@ -52,8 +61,21 @@ if __name__ == '__main__':
       nrtlib.cleanUpAndExit(-1)
   nrtlib.__setParameters(parameters)
 
-
+  # Start up the loaders
   loadfile.loaders()
+
+  # Load the modules
   loadfile.modules()
+
+  while(True):
+    numRunning = [loader['channel'].exit_status_ready() for loader in nrtlib.__loaders.values()].count(False)
+    if numRunning == 0: nrtlib.cleanUpAndExit(0)
+
+    for loadername in nrtlib.__loaders:
+      print 'loader is running: ', loadername
+
+
+    time.sleep(0.5)
+
 
 

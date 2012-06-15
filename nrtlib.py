@@ -1,19 +1,94 @@
 #!/usr/bin/env
-
 import sys
 import os
 import logging
 
-__parameters = []
-def addParameter(name, default=None, description=''):
-  logging.debug('Registering Parameter [' + name + ']')
-  __parameters.append({
-    'name' : name,
-    'default' : default,
-    'description' : description })
+__parameters = {}
+
+######################################################################
+def cleanUpAndExit(exitcode):
+  logging.debug('Cleaning up and exiting with error code ' + str(exitcode))
+  exit(exitcode)
+
+######################################################################
+def addParameter(name, default=None, description='', dataType=None):
+  if dataType is None:
+    if default is not None:
+      dataType = type(default)
+    else:
+      dataType = str
+  
+  logging.debug('Registering parameter "' + name + '" ' + str(dataType))
+
+  try:
+    dataType(default)
+  except ValueError:
+    try:
+      logging.fatal('Default value "' + str(default) +
+          '" for parameter "' + name + '" cannot be converted into dataType ' + str(dataType) + '')
+    except:
+      logging.fatal('Default value for parameter "' + name +
+          '" cannot be converted into dataType ' + str(dataType) + '')
+    finally:
+      cleanUpAndExit(-1)
+
+  if name in __parameters:
+    logging.warn('Duplicate parameters added: "' + name + '"')
+
+  value = dataType(default)
+  if default is None: value = None
+
+  __parameters[name] = {
+      'default'     : default,
+      'description' : description,
+      'value'       : value,
+      'dataType'    : dataType
+      }
+
+######################################################################
+def getParameter(name):
+  logging.debug('Getting parameter "' + name + '"')
+  if name not in __parameters:
+    logging.fatal('No parameter named "' + name + '"')
+    cleanUpAndExit(-1)
+
+######################################################################
+def __stringToParamValue(value, dataType):
+  if dataType is bool:
+    if value.lower() == 'true' or value == '1' or value.lower() == 't':
+      return True
+    elif value.lower() == 'false' or value == '0' or value.lower() == 'f':
+      return False
+    else:
+      raise ValueError
+  else:
+    return dataType(value)
+
+######################################################################
+def __setParameters(parameters):
+  logging.debug('Setting Parameters')
+
+  for paramname in parameters:
+    if paramname not in __parameters:
+      logging.fatal('No parameter named "' + paramname + '". Use the --help option to learn how to list parameters.')
+      cleanUpAndExit(-1)
+
+    try:
+      paramvalue = __stringToParamValue(parameters[paramname], __parameters[paramname]['dataType'])
+      logging.debug('Setting parameter "' + paramname + '" to value [' + str(paramvalue) + ']')
+      __parameters[paramname]['value'] = paramvalue
+    except ValueError:
+      logging.fatal('Could not set parameter "' + paramname +
+          '" to "' + parameters[paramname] + '" as ' + str(__parameters[paramname]['dataType']))
+      cleanUpAndExit(-1)
+
+  for paramname in __parameters:
+    if __parameters[paramname]['value'] is None:
+      logging.fatal('Parameter "' + paramname + '" was not set, and has no default value.')
+      cleanUpAndExit(-1)
                      
 ######################################################################
-def loadScript(filename):
+def __loadScript(filename):
   logging.debug('Loading file [' + filename + ']')
   directory = os.path.dirname(filename)
   sys.path.insert(0, directory)
@@ -24,87 +99,3 @@ def loadScript(filename):
   return __import__(module_name)
 
 
-
-
-
-#def loadModule(path, loader, parameters = [],
-#    subscribertopicfilters = [], checkertopicfilters = [], postertopics = [], 
-#    instancename = 'NRT_AUTO_#', position = (0,0), namespace = None):
-#    pass
-
-
-######################################################################
-#def loadMacroModule(path, instancename, parameters={},
-#    subscribertopicfilters={}, checkertopicfilters={}, postertopics={}, position=(0,0)):
-#  """ Load a MacroModule (an NRT python loading script) """
-#
-#  if len(logicalpath) == 0:
-#    raise Exception('Empty logical path name requested from loadmacromodule')
-#
-#  if logicalpath[0] == '/':
-#    logicalpath = logicalpath[1:]
-#
-#  if logicalpath[-3:] != '.py':
-#    logicalpath = logicalpath + '.py'
-#
-#  originalpath = list(sys.path)
-#  oldnamespace = currentNamespace()
-#  newnamespace = os.path.join(oldnamespace, instancename)
-#  setNamespace(newnamespace)
-#  setQuietSuspend(True)
-#
-#  try:
-#    if not os.environ.has_key('NRTMACROMODULEPATH'):
-#      raise Exception('You must define a ${NRTMACROMODULEPATH} environment variable ' +
-#                      'in order to load MacroModules')
-#  
-#    macromodulepaths = os.environ['NRTMACROMODULEPATH'].split(':')
-#    abspath = ''
-#    for macromodulepath in macromodulepaths:
-#      if os.path.exists(os.path.join(macromodulepath, logicalpath)):
-#        abspath = os.path.join(macromodulepath, logicalpath);
-#        break;
-#    if abspath == '':
-#      raise Exception('Could not find macromodule ' + logicalpath + ' in NRTMACROMODULEPATH')
-#  
-#    directory, module_name = os.path.split(abspath)
-#    module_name = os.path.splitext(module_name)[0]
-#    sys.path.insert(0, directory)
-#    module = None
-#    module = __import__(module_name)
-#
-#    # Call the setup() method on the macromodule
-#    module.setup()
-#
-#    # Set the parameters for this macromodules
-#    for paramname, paramvalue in parameters.iteritems():
-#      getMacroParameter(paramname).setValue(paramvalue)
-#
-#    # Call the load() method on the macromodule
-#    module.load()
-#
-#    # Set the border connector subscriber topic filters
-#    for conname, confilter in subscribertopicfilters.iteritems():
-#      modifyConnectorTopic(namespace=newnamespace, portname=conname, topic=confilter,topicorfilter='filter')
-#
-#    # Set the border connector checker topic filters
-#    for conname, confilter in checkertopicfilters.iteritems():
-#      modifyConnectorTopic(namespace=newnamespace, portname=conname, topic=confilter,topicorfilter='filter')
-#
-#    # Set the border poster checker topics
-#    for conname, contopic in postertopics.iteritems():
-#      modifyConnectorTopic(namespace=newnamespace, portname=conname, topic=contopic,topicorfilter='topic')
-#
-#    # Set the position of the macromodule
-#    __sendCommand__({'command' : 'setguidata',
-#                     'key'     : 'n:' + newnamespace,
-#                     'x'       : position[0],
-#                     'y'       : position[1]})
-#
-#  finally:
-#    sys.path[:] = originalpath
-#    setNamespace(oldnamespace)
-#    setQuietSuspend(False)
-#
-#
-#

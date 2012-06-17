@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import nrtlib
 
 def parameters():
@@ -7,8 +6,8 @@ def parameters():
   nrtlib.addParameter('local',     default=False, description='Run this script locally')
 
 def loaders():
-  nrtlib.addLoader(name='gpu', host='localhost', username='rand')
-  nrtlib.addLoader(name='cpu', host='localhost', username='rand')
+  nrtlib.addLoader(name='gpu', host='localhost', user='rand')
+  nrtlib.addLoader(name='cpu', host='localhost', user='rand')
 
 def modules():
   pass

@@ -48,7 +48,6 @@ def addLoader(name, host, user=None, password=None):
 
   nrtloader = '/Users/rand/Desktop/spin'
 
-
   __loaders[name] = {}
   __loaders[name]['host'] = host
   __loaders[name]['user'] = user
@@ -75,6 +74,33 @@ def addLoader(name, host, user=None, password=None):
       logging.fatal('Could not add loader "' + name + '" on host "' + host + '" (' + e.strerror + ')')
       del __loaders[name]
       cleanUpAndExit(-1)
+
+######################################################################
+def addInclude(filename, parameters = {}):
+  filename = os.path.expandvars(filename)
+
+  logging.info('Loading file [' + filename + ']')
+  directory = os.path.dirname(filename)
+  sys.path.insert(0, directory)
+
+  module_name = os.path.basename(filename)
+  if module_name[-3:] == '.py':
+    module_name = module_name[:-3]
+  loadfile = __import__(module_name)
+
+  # Handle the script parameters
+  loadfile.parameters()
+  __processParameters(parameters)
+
+  # Add the includes
+  loadfile.includes()
+
+  # Add the loaders
+  loadfile.loaders()
+
+  # Add the modules
+  loadfile.modules()
+
 
 ######################################################################
 def addParameter(name, default=None, description='', dataType=None):
@@ -164,7 +190,7 @@ def __stringToParamValue(value, dataType):
     return dataType(value)
 
 ######################################################################
-def __setParameters(parameters):
+def __processParameters(parameters):
   logging.info('Setting Parameters')
 
   for paramname in parameters:
@@ -185,16 +211,3 @@ def __setParameters(parameters):
     if __parameters[paramname]['value'] is None:
       logging.fatal('Parameter "' + paramname + '" was not set, and has no default value.')
       cleanUpAndExit(-1)
-                     
-######################################################################
-def __loadScript(filename):
-  logging.info('Loading file [' + filename + ']')
-  directory = os.path.dirname(filename)
-  sys.path.insert(0, directory)
-
-  module_name = os.path.basename(filename)
-  if module_name[-3:] == '.py':
-    module_name = module_name[:-3]
-  return __import__(module_name)
-
-

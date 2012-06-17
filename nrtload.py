@@ -7,6 +7,7 @@ import time
 import os
 import signal
 
+######################################################################
 def shutdown(exitstatus):
   nrtlib.cleanUpAndExit(exitstatus)
 
@@ -30,6 +31,18 @@ def inspect():
     print '  ' + loadername + ': ' + loader['user'] + '@' + loader['host']
 
 ######################################################################
+def parseScriptParameters(args):
+  parameters = {}
+  for p in args:
+    split = p.split('=')
+    if len(split) == 2:
+      parameters[split[0]] = split[1]
+    else:
+      logging.fatal('Error parsing parameter "' + p + '". Parameters must be specified as name=value')
+      nrtlib.cleanUpAndExit(-1)
+  return parameters
+
+######################################################################
 if __name__ == '__main__':
   signal.signal(signal.SIGINT, signal_handler)
 
@@ -44,6 +57,9 @@ if __name__ == '__main__':
   if len(args) < 1:
     parser.error("No loadfile specified")
 
+  # Should we just inspect the script?
+  nrtlib.__inspectMode = options.inspect
+
   # Set up logging
   logging.DISPLAY = 60
   logging.addLevelName(logging.DISPLAY, 'NRTLOAD')
@@ -54,24 +70,6 @@ if __name__ == '__main__':
   else:
     loglevel = logging.WARN
   logging.basicConfig(level=loglevel, format="%(levelname)s %(message)s")
-
-  # Load the script
-  loadfilename = args[0]
-  loadfile = nrtlib.__loadScript(loadfilename)
-
-  # Handle the script parameters
-  loadfile.parameters()
-  nrtlib.__inspectMode = options.inspect
-
-  parameters = {}
-  for p in args[1:]:
-    split = p.split('=')
-    if len(split) == 2:
-      parameters[split[0]] = split[1]
-    else:
-      logging.fatal('Error parsing parameter "' + p + '". Parameters must be specified as name=value')
-      nrtlib.cleanUpAndExit(-1)
-  nrtlib.__setParameters(parameters)
 
   # Set up logging
   if not nrtlib.__inspectMode:
@@ -85,18 +83,18 @@ if __name__ == '__main__':
 
     logging.display('Logging loader outputs to ' + os.path.join(nrtlib.__logdirectory, '*.log'))
 
-  # Start up the loaders
-  loadfile.loaders()
+  # Grab the parameters from the command line
+  parameters = parseScriptParameters(args[1:])
+  loadfilename = args[0]
+  loadfile = nrtlib.addInclude(loadfilename, parameters)
 
-  # Load the modules
-  loadfile.modules()
-
+  # If we're just inspecting, print out some info and exit
   if nrtlib.__inspectMode:
     inspect()
     exit(0)
 
-  logging.display('Network loaded - waiting... (Press ctrl-c to close network)')
   # Wait for everyone to finish
+  logging.display('Network loaded - waiting... (Press ctrl-c to close network)')
   while(True):
     numRunning = [loader['channel'].exit_status_ready() for loader in nrtlib.__loaders.values()].count(False)
     if numRunning == 0:

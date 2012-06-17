@@ -36,12 +36,18 @@ def addLoader(name, host, user=None, password=None):
   Loaders should only be added inside of the "loaders()" method of a loading script.
   """
   if name in __loaders:
-    logging.info('Skipping loader "' + name +'"')
+    if __loaders[name]['host'] == host:
+      logging.info('Skipping loader "' + name +'"')
+    else:
+      logging.fatal('Duplicate loader name found ("' + name + '")' +
+      ' with different hosts ("' + host + '", "' + __loaders[name]['host'] + '")')
+      cleanUpAndExit(-1)
     return
+  else:
+    logging.info('Adding loader "' + name +'" on host "' + host + '"')
 
   nrtloader = '/Users/rand/Desktop/spin'
 
-  logging.info('Starting loader "' + name +'" on host "' + host + '"')
 
   __loaders[name] = {}
   __loaders[name]['host'] = host

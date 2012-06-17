@@ -21,14 +21,13 @@ def inspect():
   for paramname in nrtlib.__parameters:
     parameter = nrtlib.__parameters[paramname]
     print '  ' + paramname + ' (' + parameter['description'] + ')'
-    print '    ' + ' default: [' + str(parameter['default']) + ']'
-    print '    ' + ' current: [' + str(parameter['value']) + ']\n'
+    print '    ' + ' default: [' + str(parameter['default']) + '],',
+    print 'current: [' + str(parameter['value']) + ']'
 
   print 'Loaders:'
   for loadername in nrtlib.__loaders:
     loader = nrtlib.__loaders[loadername]
     print '  ' + loadername + ': ' + loader['user'] + '@' + loader['host']
-
 
 ######################################################################
 if __name__ == '__main__':
@@ -48,6 +47,7 @@ if __name__ == '__main__':
   # Set up logging
   logging.DISPLAY = 60
   logging.addLevelName(logging.DISPLAY, 'NRTLOAD')
+  logging.addLevelName(logging.FATAL, 'FATAL')
   logging.display = lambda *kargs: logging.log(logging.DISPLAY, *kargs)
   if options.verbose:
     loglevel = logging.INFO

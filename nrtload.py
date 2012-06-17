@@ -9,7 +9,7 @@ import signal
 
 ######################################################################
 def signal_handler(signal, frame):
-  logging.info('Shutting down')
+  logging.display('Shutting down cleanly')
   nrtlib.cleanUpAndExit(0)
 
 ######################################################################
@@ -37,11 +37,15 @@ if __name__ == '__main__':
   if len(args) < 1:
     parser.error("No loadfile specified")
 
-  # Setup logging
-  loglevel = logging.WARN
+  logging.DISPLAY = 60
+  logging.addLevelName(logging.DISPLAY, 'NRTLOAD')
+  logging.display = lambda *kargs: logging.log(logging.DISPLAY, *kargs)
+  # Set up verbosity
   if options.verbose:
     loglevel = logging.DEBUG
-  logging.basicConfig(level=loglevel, format="%(levelname)s (%(module)s.%(funcName)s): %(message)s")
+  else:
+    loglevel = logging.WARN
+  logging.basicConfig(level=loglevel, format="%(levelname)s %(message)s")
 
   # Load the script
   loadfilename = args[0]
@@ -71,12 +75,15 @@ if __name__ == '__main__':
       logging.fatal('Could not access logging directory "' + nrtlib.__logdirectory + '" : ' + str(e))
       nrtlib.cleanUpAndExit(-1)
 
+  logging.display('Logging loader outputs to ' + os.path.join(nrtlib.__logdirectory, '*.log'))
+
   # Start up the loaders
   loadfile.loaders()
 
   # Load the modules
   loadfile.modules()
 
+  logging.display('Network loaded - waiting... (Press ctrl-c to close network)')
   # Wait for everyone to finish
   while(True):
     numRunning = [loader['channel'].exit_status_ready() for loader in nrtlib.__loaders.values()].count(False)

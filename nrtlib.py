@@ -57,7 +57,7 @@ def __processLogs():
   return moreData
 
 ######################################################################
-def startLoader(name, host, username=None, password=None):
+def addLoader(name, host, username=None, password=None):
   if name in __loaders:
     logging.debug('Skipping loader "' + name +'"')
     return
@@ -66,23 +66,30 @@ def startLoader(name, host, username=None, password=None):
 
   logging.debug('Starting loader "' + name +'" on host "' + host + '"')
 
-  __loaders[name] = {}
-  __loaders[name]['sshclient'] = paramiko.SSHClient()
-  __loaders[name]['sshclient'].load_system_host_keys()
-  __loaders[name]['sshclient'].set_missing_host_key_policy(paramiko.AutoAddPolicy())
-  __loaders[name]['sshclient'].connect(host, username=username, password=password)
-  __loaders[name]['transport'] = __loaders[name]['sshclient'].get_transport()
-  __loaders[name]['channel'] = __loaders[name]['transport'].open_session()
-  __loaders[name]['channel'].settimeout(0.1)
-  __loaders[name]['channel'].exec_command(nrtloader)
+  try:
+    __loaders[name] = {}
+    __loaders[name]['sshclient'] = paramiko.SSHClient()
+    __loaders[name]['sshclient'].load_system_host_keys()
+    __loaders[name]['sshclient'].set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    __loaders[name]['sshclient'].connect(host, username=username, password=password)
+    __loaders[name]['transport'] = __loaders[name]['sshclient'].get_transport()
+    __loaders[name]['channel'] = __loaders[name]['transport'].open_session()
+    __loaders[name]['channel'].settimeout(0.1)
+    __loaders[name]['channel'].exec_command(nrtloader)
+    __loaders[name]['host'] = host
+    __loaders[name]['username'] = username
 
-  stdout_logname = os.path.join(__logdirectory, name) + '_stdout.log'
-  logging.debug('Opening logfile "' + stdout_logname + '"')
-  __loaders[name]['stdout'] = open(stdout_logname, 'w')
+    stdout_logname = os.path.join(__logdirectory, name) + '_stdout.log'
+    logging.debug('Opening logfile "' + stdout_logname + '"')
+    __loaders[name]['stdout'] = open(stdout_logname, 'w')
 
-  stderr_logname = os.path.join(__logdirectory, name) + '_stderr.log'
-  logging.debug('Opening logfile "' + stderr_logname + '"')
-  __loaders[name]['stderr'] = open(stderr_logname, 'w')
+    stderr_logname = os.path.join(__logdirectory, name) + '_stderr.log'
+    logging.debug('Opening logfile "' + stderr_logname + '"')
+    __loaders[name]['stderr'] = open(stderr_logname, 'w')
+  except socket.gaierror as e:
+    logging.fatal('Could not add loader "' + name + '" on host "' + host + '". ' + e.strerror)
+    del __loaders[name]
+    cleanUpAndExit(-1)
 
 ######################################################################
 def addParameter(name, default=None, description='', dataType=None):

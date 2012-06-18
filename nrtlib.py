@@ -5,11 +5,23 @@ import logging
 import paramiko
 import socket
 import time
+import traceback
 
 __parameters = {}
 __loaders = {}
 __logdirectory = None
 __inspectMode = False
+__currFile = ''
+
+######################################################################
+def fatalError(message):
+  tracemessage = ''
+  for trace in traceback.extract_stack():
+    if trace[0] == __currFile:
+      tracemessage = '[' + trace[0] + ':' + str(trace[1]) + '] '
+      break
+  logging.fatal(tracemessage + message)
+  cleanUpAndExit(-1)
 
 ######################################################################
 def cleanUpAndExit(exitcode):
@@ -35,13 +47,13 @@ def addLoader(name, host, user=None, password=None):
   
   Loaders should only be added inside of the "loaders()" method of a loading script.
   """
+  global __loaders
   if name in __loaders:
     if __loaders[name]['host'] == host:
       logging.info('Skipping loader "' + name +'"')
     else:
-      logging.fatal('Duplicate loader name found ("' + name + '")' +
+      fatalError('Duplicate loader name found ("' + name + '")' +
       ' with different hosts ("' + host + '", "' + __loaders[name]['host'] + '")')
-      cleanUpAndExit(-1)
     return
   else:
     logging.info('Adding loader "' + name +'" on host "' + host + '"')
@@ -71,15 +83,19 @@ def addLoader(name, host, user=None, password=None):
       logging.info('Opening logfile "' + stderr_logname + '"')
       __loaders[name]['stderr'] = open(stderr_logname, 'w')
     except socket.gaierror as e:
-      logging.fatal('Could not add loader "' + name + '" on host "' + host + '" (' + e.strerror + ')')
+      #logging.fatal('Could not add loader "' + name + '" on host "' + host + '" (' + e.strerror + ')')
+
       del __loaders[name]
-      cleanUpAndExit(-1)
+      fatalError('Could not add loader "' + name + '" on host "' + host + '" (' + e.strerror + ')')
+
 
 ######################################################################
 def addInclude(filename, parameters = {}):
+  global __currFile
   filename = os.path.expandvars(filename)
+  __currFile = filename
 
-  logging.info('Loading file [' + filename + ']')
+  logging.info('Processing file [' + filename + ']')
   directory = os.path.dirname(filename)
   sys.path.insert(0, directory)
 
@@ -92,11 +108,11 @@ def addInclude(filename, parameters = {}):
   loadfile.parameters()
   __processParameters(parameters)
 
-  # Add the includes
-  loadfile.includes()
-
   # Add the loaders
   loadfile.loaders()
+
+  # Add the includes
+  loadfile.includes()
 
   # Add the modules
   loadfile.modules()
@@ -119,14 +135,15 @@ def addParameter(name, default=None, description='', dataType=None):
   try:
     dataType(default)
   except ValueError:
+    message = ''
     try:
-      logging.fatal('Default value "' + str(default) +
-          '" for parameter "' + name + '" cannot be converted into dataType ' + str(dataType) + '')
+      message = 'Default value "' + str(default) +\
+          '" for parameter "' + name + '" cannot be converted into dataType ' + str(dataType) + ''
     except:
-      logging.fatal('Default value for parameter "' + name +
-          '" cannot be converted into dataType ' + str(dataType) + '')
+      message = 'Default value for parameter "' + \
+          name + '" cannot be converted into dataType ' + str(dataType) + ''
     finally:
-      cleanUpAndExit(-1)
+      fatalError(message)
 
   if name in __parameters:
     logging.warn('Duplicate parameters added: "' + name + '"')
@@ -146,8 +163,7 @@ def getParameter(name):
   """Get the value of a parameter that was added with the addParameter method"""
   logging.info('Getting parameter "' + name + '"')
   if name not in __parameters:
-    logging.fatal('No parameter named "' + name + '"')
-    cleanUpAndExit(-1)
+    fatalError('No parameter named "' + name + '"')
   return __parameters[name]['value']
 
 ######################################################################
@@ -195,19 +211,15 @@ def __processParameters(parameters):
 
   for paramname in parameters:
     if paramname not in __parameters:
-      logging.fatal('No parameter named "' + paramname + '". Use the --help option to learn how to list parameters.')
-      cleanUpAndExit(-1)
-
+      fatalError('No parameter named "' + paramname + '". Use the --help option to learn how to list parameters.')
     try:
       paramvalue = __stringToParamValue(parameters[paramname], __parameters[paramname]['dataType'])
       logging.info('Setting parameter "' + paramname + '" to value [' + str(paramvalue) + ']')
       __parameters[paramname]['value'] = paramvalue
     except ValueError:
-      logging.fatal('Could not set parameter "' + paramname +
+      fatalError('Could not set parameter "' + paramname +
           '" to "' + parameters[paramname] + '" as ' + str(__parameters[paramname]['dataType']))
-      cleanUpAndExit(-1)
 
   for paramname in __parameters:
     if __parameters[paramname]['value'] is None:
-      logging.fatal('Parameter "' + paramname + '" was not set, and has no default value.')
-      cleanUpAndExit(-1)
+      fatalError('Parameter "' + paramname + '" was not set, and has no default value.')

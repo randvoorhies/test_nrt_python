@@ -9,7 +9,6 @@ def loaders():
 
 def includes():
   nrtlib.addInclude('${TEST_WORKSPACE}/testinclude.py')
-  pass
 
 def modules():
   pass

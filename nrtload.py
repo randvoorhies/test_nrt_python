@@ -60,7 +60,7 @@ if __name__ == '__main__':
   # Should we just inspect the script?
   nrtlib.__inspectMode = options.inspect
 
-  # Set up logging
+  # Set up message logging
   logging.DISPLAY = 60
   logging.addLevelName(logging.DISPLAY, 'NRTLOAD')
   logging.addLevelName(logging.FATAL, 'FATAL')
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     loglevel = logging.WARN
   logging.basicConfig(level=loglevel, format="%(levelname)s %(message)s")
 
-  # Set up logging
+  # Set up loader logging
   if not nrtlib.__inspectMode:
     nrtlib.__logdirectory = os.path.expanduser('~/.nrt/logs/')
     try:
@@ -85,6 +85,8 @@ if __name__ == '__main__':
 
   # Grab the parameters from the command line
   parameters = parseScriptParameters(args[1:])
+
+  # Load the file
   loadfilename = args[0]
   loadfile = nrtlib.addInclude(loadfilename, parameters)
 
@@ -106,6 +108,4 @@ if __name__ == '__main__':
 
     nrtlib.__processLogs()
     time.sleep(0.1)
-
-
 

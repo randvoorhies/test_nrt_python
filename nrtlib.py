@@ -6,12 +6,14 @@ import paramiko
 import socket
 import time
 import traceback
+import inspect
 
 __parameters = {}
 __loaders = {}
 __logdirectory = None
 __inspectMode = False
 __currFile = ''
+__paramsAvailable = False
 
 ######################################################################
 def fatal(message):
@@ -42,7 +44,7 @@ def cleanUpAndExit(exitcode):
   exit(exitcode)
 
 ######################################################################
-def addLoader(name, host, user=None, password=None):
+def addLoader(name, host, user=None, password=None, key=None, key_filename=None):
   """Request a loader with the given name to be started on the given host.
   
   Loaders should only be added inside of the "loaders()" method of a loading script.
@@ -63,13 +65,19 @@ def addLoader(name, host, user=None, password=None):
   __loaders[name] = {}
   __loaders[name]['host'] = host
   __loaders[name]['user'] = user
+  __loaders[name]['source'] = __currFile
 
   if not __inspectMode:
     try:
+      connectionTimeout = 10
+
       __loaders[name]['sshclient'] = paramiko.SSHClient()
       __loaders[name]['sshclient'].load_system_host_keys()
       __loaders[name]['sshclient'].set_missing_host_key_policy(paramiko.AutoAddPolicy())
-      __loaders[name]['sshclient'].connect(host, username=user, password=password)
+      logging.info('Connecting to ' + host + '... (will timeout after ' + str(connectionTimeout) + 's)')
+      __loaders[name]['sshclient'].connect(host, username=user, password=password,
+          pkey=key, key_filename=key_filename, timeout=connectionTimeout)
+      logging.info('Connected to ' + host)
       __loaders[name]['transport'] = __loaders[name]['sshclient'].get_transport()
       __loaders[name]['channel'] = __loaders[name]['transport'].open_session()
       __loaders[name]['channel'].settimeout(0.1)
@@ -82,18 +90,27 @@ def addLoader(name, host, user=None, password=None):
       stderr_logname = os.path.join(__logdirectory, name) + '_stderr.log'
       logging.info('Opening logfile "' + stderr_logname + '"')
       __loaders[name]['stderr'] = open(stderr_logname, 'w')
+
     except socket.gaierror as e:
       del __loaders[name]
       fatal('Could not add loader "' + name + '" on host "' + host + '" (' + e.strerror + ')')
-
+    except socket.timeout as e:
+      del __loaders[name]
+      fatal('Timed out when connecting to host "' + host + '"')
+    except paramiko.AuthenticationException:
+      del __loaders[name]
+      fatal('Failed to authenticate on host "' + host + '" with user="' + str(user) + '"')
 
 ######################################################################
 def addInclude(filename, parameters = {}):
-  global __currFile
+  global __currFile, __paramsAvailable
   filename = os.path.expandvars(filename)
   __currFile = filename
 
   logging.info('Processing file [' + filename + ']')
+  if not os.path.exists(filename):
+    fatal('Could not find file: ' + filename)
+
   directory = os.path.dirname(filename)
   sys.path.insert(0, directory)
 
@@ -104,17 +121,23 @@ def addInclude(filename, parameters = {}):
   loadfile = __import__(module_name)
 
   # Handle the script parameters
-  loadfile.parameters()
-  __processParameters(parameters)
+  __paramsAvailable = False
+  if 'parameters' in loadfile.__dict__:
+    loadfile.parameters()
+    __processParameters(parameters)
+  __paramsAvailable = True
 
   # Add the loaders
-  loadfile.loaders()
+  if 'loaders' in loadfile.__dict__:
+    loadfile.loaders()
 
   # Add the includes
-  loadfile.includes()
+  if 'includes' in loadfile.__dict__:
+    loadfile.includes()
 
   # Add the modules
-  loadfile.modules()
+  if 'modules' in loadfile.__dict__:
+    loadfile.modules()
 
 
 ######################################################################
@@ -123,6 +146,8 @@ def addParameter(name, default=None, description='', dataType=None):
   
   Parameters should only be added inside of the "parameters()" method of a loading script.
   """
+  global __parameters
+
   if dataType is None:
     if default is not None:
       dataType = type(default)
@@ -154,13 +179,19 @@ def addParameter(name, default=None, description='', dataType=None):
       'default'     : default,
       'description' : description,
       'value'       : value,
-      'dataType'    : dataType
+      'dataType'    : dataType,
+      'source'      : __currFile
       }
 
 ######################################################################
 def getParameter(name):
   """Get the value of a parameter that was added with the addParameter method"""
   logging.info('Getting parameter "' + name + '"')
+
+
+  if not __paramsAvailable:
+    fatal('Trying to access a Parameter in parameters() method. Parameter values are not available here.')
+
   if name not in __parameters:
     fatal('No parameter named "' + name + '"')
   return __parameters[name]['value']
@@ -168,6 +199,7 @@ def getParameter(name):
 ######################################################################
 def __processLogs():
   """Write any buffered output from loaders to their respective log files."""
+  global __loaders
   moreData = False
   maxtime = 0.1
   for name in __loaders:
@@ -206,6 +238,7 @@ def __stringToParamValue(value, dataType):
 
 ######################################################################
 def __processParameters(parameters):
+  global __parameters
   logging.info('Setting Parameters')
 
   for paramname in parameters:

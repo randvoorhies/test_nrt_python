@@ -17,18 +17,19 @@ def signal_handler(signal, frame):
   shutdown(0)
 
 ######################################################################
-def inspect():
+def inspect(scriptFilename):
   print 'Parameters:'
   for paramname in nrtlib.__parameters:
     parameter = nrtlib.__parameters[paramname]
-    print '  ' + paramname + ' (' + parameter['description'] + ')'
-    print '    ' + ' default: [' + str(parameter['default']) + '],',
-    print 'current: [' + str(parameter['value']) + ']'
+    if parameter['source'] == scriptFilename:
+      print '  ' + paramname + ' (' + parameter['description'] + ')'
+      print '    ' + ' default: [' + str(parameter['default']) + '],',
+      print 'current: [' + str(parameter['value']) + ']'
 
   print 'Loaders:'
   for loadername in nrtlib.__loaders:
     loader = nrtlib.__loaders[loadername]
-    print '  ' + loadername + ': ' + loader['user'] + '@' + loader['host']
+    print '  ' + loadername + ': ' + loader['user'] + '@' + loader['host'] + ' (added by ' + loader['source'] + ')'
 
 ######################################################################
 def parseScriptParameters(args):
@@ -49,9 +50,9 @@ if __name__ == '__main__':
   usage = "usage: %prog [options] loadfile.py [-- loadfileoptions]"
   parser = OptionParser(usage=usage)
   parser.add_option("-v", "--verbose", dest="verbose",
-      help="Verbose output", action="store_true") 
+      help="verbose output", action="store_true") 
   parser.add_option("-i", "--inspect", dest="inspect",
-      help="Display information (parameters, loaders, etc) and exit.", action="store_true") 
+      help="display information (parameters, loaders, etc) and exit", action="store_true") 
 
   (options, args) = parser.parse_args()
   if len(args) < 1:
@@ -92,7 +93,7 @@ if __name__ == '__main__':
 
   # If we're just inspecting, print out some info and exit
   if nrtlib.__inspectMode:
-    inspect()
+    inspect(loadfilename)
     exit(0)
 
   # Wait for everyone to finish

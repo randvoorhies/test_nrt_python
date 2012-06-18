@@ -2,10 +2,10 @@
 import nrtlib
 
 def parameters():
-  nrtlib.addParameter('radparam', default=99, description='A truly radical parameter')
+  nrtlib.addParameter('auxloader', default='ilab21', description='The host for the auxiliary computations')
 
 def loaders():
-  nrtlib.addLoader(name='auxilliary', host='localhost', user='rand')
+  nrtlib.addLoader(name='auxiliary', host=nrtlib.getParameter('auxloader'), user='rand')
 
 def includes():
   pass

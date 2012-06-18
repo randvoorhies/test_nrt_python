@@ -6,22 +6,28 @@ import paramiko
 import socket
 import time
 import traceback
-import inspect
 
-__parameters = {}
-__loaders = {}
-__logdirectory = None
-__inspectMode = False
-__currFile = ''
-__paramsAvailable = False
+__parameters       = {}
+__loaders          = {}
+__logdirectory     = None
+__inspectMode      = False
+__currFile         = ''
+__paramsAvailable  = False
+__topLevelFilename = ''
+
+######################################################################
+def __getLineNumber():
+  for trace in traceback.extract_stack():
+    if trace[0] == __currFile:
+      return trace[1]
+  return None
 
 ######################################################################
 def fatal(message):
   tracemessage = ''
-  for trace in traceback.extract_stack():
-    if trace[0] == __currFile:
-      tracemessage = '[' + trace[0] + ':' + str(trace[1]) + '] '
-      break
+  lineno = __getLineNumber()
+  if lineno is not None:
+    tracemessage = '[' + __currFile + ':' + str(lineno) + '] '
   logging.fatal(tracemessage + message)
   cleanUpAndExit(-1)
 
@@ -34,12 +40,13 @@ def cleanUpAndExit(exitcode):
   logging.info('Cleaning up and exiting with error code ' + str(exitcode))
 
   # Close down all of the loaders
-  for loadername in __loaders:
-    __loaders[loadername]['sshclient'].close()
+  if not __inspectMode:
+    for loadername in __loaders:
+      __loaders[loadername]['sshclient'].close()
 
-  # Keep dumping logs for another few seconds
-  maxtime = time.time() + 3
-  while __processLogs() == True and time.time() < maxtime: pass
+    # Keep dumping logs for another few seconds
+    maxtime = time.time() + 3
+    while __processLogs() == True and time.time() < maxtime: pass
 
   exit(exitcode)
 
@@ -107,7 +114,7 @@ def addInclude(filename, parameters = {}):
   filename = os.path.expandvars(filename)
   __currFile = filename
 
-  logging.info('Processing file [' + filename + ']')
+  logging.info('Adding included file "' + filename + '"')
   if not os.path.exists(filename):
     fatal('Could not find file: ' + filename)
 
@@ -131,9 +138,11 @@ def addInclude(filename, parameters = {}):
   if 'loaders' in loadfile.__dict__:
     loadfile.loaders()
 
+  currFile = __currFile
   # Add the includes
   if 'includes' in loadfile.__dict__:
     loadfile.includes()
+  __currFile = currFile
 
   # Add the modules
   if 'modules' in loadfile.__dict__:
@@ -175,12 +184,15 @@ def addParameter(name, default=None, description='', dataType=None):
   value = dataType(default)
   if default is None: value = None
 
+  lineno = str(__getLineNumber())
+
   __parameters[name] = {
       'default'     : default,
       'description' : description,
       'value'       : value,
       'dataType'    : dataType,
-      'source'      : __currFile
+      'sourcefile'  : __currFile,
+      'sourceline'  : lineno
       }
 
 ######################################################################
@@ -249,8 +261,11 @@ def __processParameters(parameters):
       logging.info('Setting parameter "' + paramname + '" to value [' + str(paramvalue) + ']')
       __parameters[paramname]['value'] = paramvalue
     except ValueError:
-      fatal('Could not set parameter "' + paramname +
-          '" to "' + parameters[paramname] + '" as ' + str(__parameters[paramname]['dataType']))
+      parameter = __parameters[paramname]
+      message =  'Could not set parameter "' + paramname + '"'
+      message += ' to "' + parameters[paramname] + '" as ' + str(parameter['dataType'])
+      message += ' (defined here: ' + parameter['sourcefile'] + ':' + str(parameter['sourceline']) + ')'
+      fatal(message)
 
   for paramname in __parameters:
     if __parameters[paramname]['value'] is None:

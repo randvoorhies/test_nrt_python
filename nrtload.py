@@ -21,7 +21,7 @@ def inspect(scriptFilename):
   print 'Parameters:'
   for paramname in nrtlib.__parameters:
     parameter = nrtlib.__parameters[paramname]
-    if parameter['source'] == scriptFilename:
+    if parameter['sourcefile'] == scriptFilename:
       print '  ' + paramname + ' (' + parameter['description'] + ')'
       print '    ' + ' default: [' + str(parameter['default']) + '],',
       print 'current: [' + str(parameter['value']) + ']'
@@ -89,6 +89,7 @@ if __name__ == '__main__':
 
   # Load the file
   loadfilename = args[0]
+  nrtlib.__topLevelFilename = loadfilename
   loadfile = nrtlib.addInclude(loadfilename, parameters)
 
   # If we're just inspecting, print out some info and exit

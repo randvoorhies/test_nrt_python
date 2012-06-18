@@ -17,7 +17,8 @@ def includes():
     auxhost = 'localhost'
 
   nrtlib.addInclude('${TEST_WORKSPACE}/testinclude.py',
-      parameters = {'auxloader' : auxhost})
+      parameters = {'auxloader' : auxhost,
+                    'test' : 4})
 
 def modules():
   pass

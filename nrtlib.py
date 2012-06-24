@@ -132,21 +132,29 @@ def addInclude(filename, parameters = {}):
   if 'parameters' in loadfile.__dict__:
     loadfile.parameters()
     __processParameters(parameters)
+  else:
+    logging.info('No parameters() section found in "' + filename +'"')
   __paramsAvailable = True
 
   # Add the loaders
   if 'loaders' in loadfile.__dict__:
     loadfile.loaders()
+  else:
+    logging.info('No loaders() section found in "' + filename +'"')
 
   currFile = __currFile
   # Add the includes
   if 'includes' in loadfile.__dict__:
     loadfile.includes()
+  else:
+    logging.info('No includes() section found in "' + filename +'"')
   __currFile = currFile
 
   # Add the modules
   if 'modules' in loadfile.__dict__:
     loadfile.modules()
+  else:
+    logging.info('No modules() section found in "' + filename +'"')
 
 
 ######################################################################

@@ -17,6 +17,46 @@ def signal_handler(signal, frame):
   shutdown(0)
 
 ######################################################################
+def makeSkeleton():
+  return """#!/usr/bin/env python
+import nrtlib
+
+def parameters():
+  # Add parameters that will accessible to this loading script.
+  # Any parameters added here can be accessed in any of the other methods by calling:
+  #   nrtlib.getParameter('paramname')
+  # Notes:
+  #  - You cannot call getParameter(...) inside of the parameters() method.
+  #  - You must specify either a dataType, or a default (in which case the dataType is inferred).
+  #  - If you don't specify a default (or specify it as None), then the parameter will be 'required'
+  nrtlib.addParameter('paramname', default=4.2, description='A demo parameter', dataType=float)
+
+def loaders():
+  # Add an nrtLoader to this loading script. The loader will be launched on the 
+  # requested host when this script is executed.
+  nrtlib.addLoader(name='loadername', host='hostname', user='yourname')
+
+def includes():
+  # Read in another load file. If it adds parameters in its parameters() method, then 
+  # you can set those here. 
+  nrtlib.addInclude('includefile.py',
+      parameters = {'param1' : 1.0,
+                    'param2' : 'hello, world'})
+
+def modules():
+  # Add a module to a particular loader.
+  nrtlib.addModule(
+    loader='loadername',
+    path='path/to/your/module',
+    instancename = 'MyCoolModule1',
+    parameters = {'moduleparam1' : 'param1value',
+                  'moduleparam2' : 99.99 },
+    subscribertopicfilters = {'subscriberportname' : 'interestingtopics.*'},
+    checkertopicfilters = {'checkerportname' : 'asynctopics[0-9]*'},
+    postertopics = {'posterportname1' : 'mycoolpostertopic'},
+    position = (0,0))"""
+
+######################################################################
 def inspect(scriptFilename):
   print 'Parameters:'
   for paramname in nrtlib.__parameters:
@@ -53,10 +93,24 @@ if __name__ == '__main__':
       help="verbose output", action="store_true") 
   parser.add_option("-i", "--inspect", dest="inspect",
       help="display information (parameters, loaders, etc) and exit", action="store_true") 
+  parser.add_option("-s", "--skeleton", dest="skeleton",
+      help="create a skeleton load file and exit", action="store_true") 
 
   (options, args) = parser.parse_args()
-  if len(args) < 1:
+  if len(args) < 1 and not options.skeleton:
     parser.error("No loadfile specified")
+
+  # Are we just making a skeleton?
+  if options.skeleton:
+    if len(args) < 1:
+      print makeSkeleton()
+    else:
+      filename = args[0]
+      if os.path.exists(filename):
+        parser.error("Cannot overwrite a file when creating a skeleton. Please specify a new filename (or no filename at all.")
+      with open(filename, 'w') as f:
+        f.write(makeSkeleton())
+    exit(0)
 
   # Should we just inspect the script?
   nrtlib.__inspectMode = options.inspect

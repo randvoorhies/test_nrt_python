@@ -5,11 +5,10 @@ def parameters():
   nrtlib.addParameter('local', default=True, description='Run this script locally')
 
 def loaders():
-  mainhost = 'ilab1.usc.edu'
-  if nrtlib.getParameter('local'):
-    mainhost = 'localhost'
-
-  nrtlib.addLoader(name='main', host=mainhost, user='rand')
+  if nrtlib.getParameter('local'): 
+    nrtlib.addLoader(name='main', host='localhost', user='rand')
+  else:
+    nrtlib.addLoader(name='main', host='ilab21', user='rand')
 
 def includes():
   auxhost = 'ilab1'
